@@ -1,7 +1,9 @@
+#include "SLABasePool.hpp"
+#include <iostream>
+
 #include <functional>
 #include <numeric>
 
-#include "SLABasePool.hpp"
 #include "ExPolygon.hpp"
 #include "TriangleMesh.hpp"
 #include "ClipperUtils.hpp"
@@ -17,10 +19,10 @@ namespace {
 using Box = Slic3r::BoundingBox;
 
 /// Index of minimum corner of the box.
-int const min_corner = 0;
+std::size_t const min_corner = 0;
 
 /// Index of maximum corner of the box.
-int const max_corner = 1;
+std::size_t const max_corner = 1;
 }
 
 namespace boost {
@@ -55,6 +57,26 @@ template<int d> struct access<Slic3r::Point, d > {
     }
 };
 
+//template<> struct access<Slic3r::Point, 0 > {
+//    static inline coord_t get(Slic3r::Point const& a) {
+//        return a(0);
+//    }
+
+//    static inline void set(Slic3r::Point& a, coord_t const& value) {
+//        a(0) = value;
+//    }
+//};
+
+//template<> struct access<Slic3r::Point, 1 > {
+//    static inline coord_t get(Slic3r::Point const& a) {
+//        return a(1);
+//    }
+
+//    static inline void set(Slic3r::Point& a, coord_t const& value) {
+//        a(1) = value;
+//    }
+//};
+
 /* ************************************************************************** */
 /* Box concept adaptation *************************************************** */
 /* ************************************************************************** */
@@ -67,19 +89,47 @@ template<> struct point_type<Box> {
     using type = Slic3r::Point;
 };
 
-template<int d> struct indexed_access<Box, min_corner, d> {
+template<std::size_t d> struct indexed_access<Box, min_corner, d> {
     static inline coord_t get(Box const& box) { return box.min(d); }
     static inline void set(Box &box, coord_t const& coord) {
         box.min(d) = coord;
     }
 };
 
-template<int d> struct indexed_access<Box, max_corner, d> {
+template<std::size_t d> struct indexed_access<Box, max_corner, d> {
     static inline coord_t get(Box const& box) { return box.max(d); }
     static inline void set(Box &box, coord_t const& coord) {
         box.max(d) = coord;
     }
 };
+
+//template<> struct indexed_access<Box, min_corner, 0> {
+//    static inline coord_t get(Box const& box) { return box.min(0); }
+//    static inline void set(Box &box, coord_t const& coord) {
+//        box.min(0) = coord;
+//    }
+//};
+
+//template<> struct indexed_access<Box, min_corner, 1> {
+//    static inline coord_t get(Box const& box) { return box.min(1); }
+//    static inline void set(Box &box, coord_t const& coord) {
+//        box.min(1) = coord;
+//    }
+//};
+
+//template<> struct indexed_access<Box, max_corner, 0> {
+//    static inline coord_t get(Box const& box) { return box.max(0); }
+//    static inline void set(Box &box, coord_t const& coord) {
+//        box.max(0) = coord;
+//    }
+//};
+
+//template<> struct indexed_access<Box, max_corner, 1> {
+//    static inline coord_t get(Box const& box) { return box.max(1); }
+//    static inline void set(Box &box, coord_t const& coord) {
+//        box.max(1) = coord;
+//    }
+//};
 
 }
 }

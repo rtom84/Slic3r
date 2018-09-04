@@ -1,5 +1,5 @@
-#ifndef SLASUPPORTPOOL_HPP
-#define SLASUPPORTPOOL_HPP
+#ifndef SLABASEPOOL_HPP
+#define SLABASEPOOL_HPP
 
 #include <vector>
 
@@ -34,4 +34,4 @@ void create_base_pool(const ExPolygons& base_plate,
 
 }
 
-#endif // SLASUPPORTPOOL_HPP
+#endif // SLABASEPOOL_HPP

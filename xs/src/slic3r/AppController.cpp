@@ -425,6 +425,13 @@ void PrintController::add_sla_pool()
     auto presetbundle = GUI::get_preset_bundle();
     assert(presetbundle);
 
+    auto pt = presetbundle->printers.get_selected_preset().printer_technology();
+    if(pt != ptSLA) {
+        report_issue(IssueType::ERR, L("Printer technology is not SLA!"),
+                     L("Error"));
+        return;
+    }
+
     auto conf = presetbundle->full_config();
     conf.validate();
 
