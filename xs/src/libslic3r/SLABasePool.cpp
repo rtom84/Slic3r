@@ -10,13 +10,14 @@
 
 #include "boost/log/trivial.hpp"
 // for concave hull merging decisions
+#include <boost/geometry.hpp>
 #include <boost/geometry/index/rtree.hpp>
+
 
 //#include "SVG.hpp"
 //#include "benchmark.h"
 
 namespace {
-using Box = Slic3r::BoundingBox;
 
 /// Index of minimum corner of the box.
 std::size_t const min_corner = 0;
@@ -81,24 +82,30 @@ template<int d> struct access<Slic3r::Point, d > {
 /* Box concept adaptation *************************************************** */
 /* ************************************************************************** */
 
-template<> struct tag<Box> {
+template<> struct tag<Slic3r::BoundingBox> {
     using type = box_tag;
 };
 
-template<> struct point_type<Box> {
+template<> struct point_type<Slic3r::BoundingBox> {
     using type = Slic3r::Point;
 };
 
-template<std::size_t d> struct indexed_access<Box, min_corner, d> {
-    static inline coord_t get(Box const& box) { return box.min(d); }
-    static inline void set(Box &box, coord_t const& coord) {
+template<std::size_t d>
+struct indexed_access<Slic3r::BoundingBox, min_corner, d> {
+    static inline coord_t get(Slic3r::BoundingBox const& box) {
+        return box.min(d);
+    }
+    static inline void set(Slic3r::BoundingBox &box, coord_t const& coord) {
         box.min(d) = coord;
     }
 };
 
-template<std::size_t d> struct indexed_access<Box, max_corner, d> {
-    static inline coord_t get(Box const& box) { return box.max(d); }
-    static inline void set(Box &box, coord_t const& coord) {
+template<std::size_t d>
+struct indexed_access<Slic3r::BoundingBox, max_corner, d> {
+    static inline coord_t get(Slic3r::BoundingBox const& box) {
+        return box.max(d);
+    }
+    static inline void set(Slic3r::BoundingBox &box, coord_t const& coord) {
         box.max(d) = coord;
     }
 };
@@ -135,14 +142,13 @@ template<std::size_t d> struct indexed_access<Box, max_corner, d> {
 }
 }
 
-namespace bgi = boost::geometry::index;
-using SpatElement = std::pair<Box, unsigned>;
-using SpatIndex = bgi::rtree< SpatElement, bgi::rstar<16, 4> >;
-
-
 namespace Slic3r { namespace sla {
 
 namespace {
+
+namespace bgi = boost::geometry::index;
+using SpatElement = std::pair<BoundingBox, unsigned>;
+using SpatIndex = bgi::rtree< SpatElement, bgi::rstar<16, 4> >;
 
 using coord_t = Point::coord_type;
 
@@ -538,7 +544,7 @@ inline ExPolygons concave_hull(const ExPolygons& polys, double max_dist_mm = 50)
     SpatIndex boxindex; unsigned idx = 0;
     std::for_each(punion.begin(), punion.end(),
                   [&boxindex, &idx](const ExPolygon& expo) {
-        Box bb(expo);
+        BoundingBox bb(expo);
         boxindex.insert(std::make_pair(bb, idx++));
     });
 
@@ -561,7 +567,7 @@ inline ExPolygons concave_hull(const ExPolygons& polys, double max_dist_mm = 50)
         double max_dist = mm(max_dist_mm);
 
         ExPolygon& expo = punion[idx++];
-        Box querybb(expo);
+        BoundingBox querybb(expo);
 
         querybb.offset(max_dist);
         std::vector<SpatElement> result;
