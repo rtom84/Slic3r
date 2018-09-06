@@ -287,6 +287,8 @@ add_library(libslic3r_gui STATIC
     ${LIBDIR}/slic3r/AppControllerWx.cpp
 )
 
+target_link_libraries(libslic3r_gui libslic3r)
+
 add_library(admesh STATIC
     ${LIBDIR}/admesh/connect.cpp
     ${LIBDIR}/admesh/normals.cpp
@@ -523,7 +525,7 @@ if(APPLE)
     # Ignore undefined symbols of the perl interpreter, they will be found in the caller image.
     target_link_libraries(XS "-undefined dynamic_lookup")
 endif()
-target_link_libraries(XS libslic3r_gui libslic3r  admesh miniz clipper nowide polypartition poly2tri semver avrdude qhull)
+target_link_libraries(XS libslic3r libslic3r_gui admesh miniz clipper nowide polypartition poly2tri semver avrdude qhull)
 if(SLIC3R_PROFILE)
     target_link_libraries(XS Shiny)
 endif()
