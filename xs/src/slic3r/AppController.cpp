@@ -388,12 +388,15 @@ void PrintController::slice_to_png()
         auto pri = create_progress_indicator(
                     200, L("Slicing to zipped png files..."));
 
+        pri->on_cancel([&print](){ print->cancel(); });
+
         try {
             pri->update(0, L("Slicing..."));
             slice(pri);
         } catch (std::exception& e) {
             report_issue(IssueType::ERR, e.what(), L("Exception occured"));
             scale_back();
+            if(print->canceled()) print->restart();
 //            rempools();
             return;
         }
@@ -413,6 +416,7 @@ void PrintController::slice_to_png()
 
         print->progressindicator = pbak;
         scale_back();
+        if(print->canceled()) print->restart();
 //        rempools();
 
         //    });

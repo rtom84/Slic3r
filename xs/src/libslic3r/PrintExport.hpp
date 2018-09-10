@@ -75,7 +75,7 @@ public:
 
 // Implementation for PNG raster output
 // Be aware that if a large number of layers are allocated, it can very well
-// exhaust the available memory especially on 32 bit platform.
+// exhaust the available memory especially on 32 bit platforms.
 template<> class FilePrinter<FilePrinterFormat::PNG> {
 
     struct Layer {
@@ -260,6 +260,8 @@ void print_to(Print& print,
 
     auto& objects = print.objects;
 
+    if(print.canceled()) return;
+
     // Merge the sliced layers with the support layers
     std::for_each(objects.begin(), objects.end(), [&layers](PrintObject *o) {
         for(auto l : o->layers) {
@@ -296,12 +298,14 @@ void print_to(Print& print,
     printer.layers(layers.size());  // Allocate space for all the layers
 
     int st_prev = 0;
-    const std::string jobdesc = "Rasterizing and compressing sliced layers";
+    const std::string jobdesc = L("Rasterizing and compressing sliced layers");
     tbb::spin_mutex m;
 
     std::vector<long long> keys;
     keys.reserve(layers.size());
     for(auto& e : layers) keys.push_back(e.first);
+
+    if(print.canceled()) return;
 
     int initstatus = print.progressindicator? print.progressindicator->state()
                                             : 0;
@@ -317,6 +321,8 @@ void print_to(Print& print,
         printer.beginLayer(layer_id);   // Switch to the appropriate layer
 
         for(Layer *lp : lrange) {
+            if(print.canceled()) break;
+
             Layer& l = *lp;
 
             ExPolygonCollection slices = l.slices;  // Copy the layer slices
@@ -379,9 +385,14 @@ void print_to(Print& print,
 //    print.set_status(100, jobdesc);
 
     // Save the print into the file system.
-    print.set_status(initstatus + 90, "Writing layers to disk");
+    if(print.canceled()) {
+        print.set_status(initstatus + 100, L("Export canceled"));
+        return;
+    }
+
+    print.set_status(initstatus + 90, L("Writing layers to disk"));
     printer.save(dir);
-    print.set_status(initstatus + 100, "Writing layers completed");
+    print.set_status(initstatus + 100, L("Writing layers completed"));
 }
 
 }

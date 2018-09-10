@@ -53,6 +53,8 @@ public:
     /// Set up a cancel callback for the operation if feasible.
     virtual void on_cancel(CancelFn func = CancelFn()) { cancelfunc_ = func; }
 
+    virtual void cancel() { cancelfunc_(); }
+
     /// Convenience function to call message and status update in one function.
     void update(float st, const std::string& msg) {
         message(msg); state(st);

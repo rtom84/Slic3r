@@ -1,210 +1,13 @@
 #include "SLABasePool.hpp"
-#include <iostream>
-
-#include <functional>
-#include <numeric>
-
-#include "ExPolygon.hpp"
-#include "TriangleMesh.hpp"
-#include "ClipperUtils.hpp"
-
-#include "boost/log/trivial.hpp"
-// for concave hull merging decisions
-#include <boost/geometry.hpp>
-#include <boost/geometry/index/rtree.hpp>
-
+#include "SLABoilerPlate.hpp"
 
 //#include "SVG.hpp"
 //#include "benchmark.h"
 
-namespace {
-
-/// Index of minimum corner of the box.
-std::size_t const min_corner = 0;
-
-/// Index of maximum corner of the box.
-std::size_t const max_corner = 1;
-}
-
-namespace boost {
-namespace geometry {
-namespace traits {
-
-/* ************************************************************************** */
-/* Point concept adaptation ************************************************* */
-/* ************************************************************************** */
-
-template<> struct tag<Slic3r::Point> {
-    using type = point_tag;
-};
-
-template<> struct coordinate_type<Slic3r::Point> {
-    using type = coord_t;
-};
-
-template<> struct coordinate_system<Slic3r::Point> {
-    using type = cs::cartesian;
-};
-
-template<> struct dimension<Slic3r::Point>: boost::mpl::int_<2> {};
-
-template<int d> struct access<Slic3r::Point, d > {
-    static inline coord_t get(Slic3r::Point const& a) {
-        return a(d);
-    }
-
-    static inline void set(Slic3r::Point& a, coord_t const& value) {
-        a(d) = value;
-    }
-};
-
-//template<> struct access<Slic3r::Point, 0 > {
-//    static inline coord_t get(Slic3r::Point const& a) {
-//        return a(0);
-//    }
-
-//    static inline void set(Slic3r::Point& a, coord_t const& value) {
-//        a(0) = value;
-//    }
-//};
-
-//template<> struct access<Slic3r::Point, 1 > {
-//    static inline coord_t get(Slic3r::Point const& a) {
-//        return a(1);
-//    }
-
-//    static inline void set(Slic3r::Point& a, coord_t const& value) {
-//        a(1) = value;
-//    }
-//};
-
-/* ************************************************************************** */
-/* Box concept adaptation *************************************************** */
-/* ************************************************************************** */
-
-template<> struct tag<Slic3r::BoundingBox> {
-    using type = box_tag;
-};
-
-template<> struct point_type<Slic3r::BoundingBox> {
-    using type = Slic3r::Point;
-};
-
-template<std::size_t d>
-struct indexed_access<Slic3r::BoundingBox, min_corner, d> {
-    static inline coord_t get(Slic3r::BoundingBox const& box) {
-        return box.min(d);
-    }
-    static inline void set(Slic3r::BoundingBox &box, coord_t const& coord) {
-        box.min(d) = coord;
-    }
-};
-
-template<std::size_t d>
-struct indexed_access<Slic3r::BoundingBox, max_corner, d> {
-    static inline coord_t get(Slic3r::BoundingBox const& box) {
-        return box.max(d);
-    }
-    static inline void set(Slic3r::BoundingBox &box, coord_t const& coord) {
-        box.max(d) = coord;
-    }
-};
-
-//template<> struct indexed_access<Box, min_corner, 0> {
-//    static inline coord_t get(Box const& box) { return box.min(0); }
-//    static inline void set(Box &box, coord_t const& coord) {
-//        box.min(0) = coord;
-//    }
-//};
-
-//template<> struct indexed_access<Box, min_corner, 1> {
-//    static inline coord_t get(Box const& box) { return box.min(1); }
-//    static inline void set(Box &box, coord_t const& coord) {
-//        box.min(1) = coord;
-//    }
-//};
-
-//template<> struct indexed_access<Box, max_corner, 0> {
-//    static inline coord_t get(Box const& box) { return box.max(0); }
-//    static inline void set(Box &box, coord_t const& coord) {
-//        box.max(0) = coord;
-//    }
-//};
-
-//template<> struct indexed_access<Box, max_corner, 1> {
-//    static inline coord_t get(Box const& box) { return box.max(1); }
-//    static inline void set(Box &box, coord_t const& coord) {
-//        box.max(1) = coord;
-//    }
-//};
-
-}
-}
-}
-
 namespace Slic3r { namespace sla {
 
-namespace {
-
-namespace bgi = boost::geometry::index;
-using SpatElement = std::pair<BoundingBox, unsigned>;
-using SpatIndex = bgi::rtree< SpatElement, bgi::rstar<16, 4> >;
-
-using coord_t = Point::coord_type;
-
-/// get the scaled clipper units for a millimeter value
-inline coord_t mm(double v) { return coord_t(v/SCALING_FACTOR); }
-
-/// Get x and y coordinates (because we are eigenizing...)
-inline coord_t x(const Point& p) { return p(0); }
-inline coord_t y(const Point& p) { return p(1); }
-inline coord_t& x(Point& p) { return p(0); }
-inline coord_t& y(Point& p) { return p(1); }
-
-inline coordf_t x(const Vec3d& p) { return p(0); }
-inline coordf_t y(const Vec3d& p) { return p(1); }
-inline coordf_t z(const Vec3d& p) { return p(2); }
-inline coordf_t& x(Vec3d& p) { return p(0); }
-inline coordf_t& y(Vec3d& p) { return p(1); }
-inline coordf_t& z(Vec3d& p) { return p(2); }
-
-inline coord_t& x(Vec3crd& p) { return p(0); }
-inline coord_t& y(Vec3crd& p) { return p(1); }
-inline coord_t& z(Vec3crd& p) { return p(2); }
-inline coord_t x(const Vec3crd& p) { return p(0); }
-inline coord_t y(const Vec3crd& p) { return p(1); }
-inline coord_t z(const Vec3crd& p) { return p(2); }
-
-inline void triangulate(const ExPolygon& expoly, Polygons& triangles) {
-    expoly.triangulate_p2t(&triangles);
-}
-
-inline Polygons triangulate(const ExPolygon& expoly) {
-    Polygons tri; triangulate(expoly, tri); return tri;
-}
-
-using Indices = std::vector<Vec3crd>;
-
-/// Intermediate struct for a 3D mesh
-struct Contour3D {
-    Pointf3s points;
-    Indices indices;
-
-    void merge(const Contour3D& ctr) {
-        auto s3 = coord_t(points.size());
-        auto s = coord_t(indices.size());
-
-        points.insert(points.end(), ctr.points.begin(), ctr.points.end());
-        indices.insert(indices.end(), ctr.indices.begin(), ctr.indices.end());
-
-        for(auto n = s; n < indices.size(); n++) {
-            auto& idx = indices[n]; x(idx) += s3; y(idx) += s3; z(idx) += s3;
-        }
-    }
-};
-
 /// Convert the triangulation output to an intermediate mesh.
-inline Contour3D convert(const Polygons& triangles, coord_t z, bool dir) {
+Contour3D convert(const Polygons& triangles, coord_t z, bool dir) {
 
     Pointf3s points;
     points.reserve(3*triangles.size());
@@ -223,18 +26,7 @@ inline Contour3D convert(const Polygons& triangles, coord_t z, bool dir) {
     return {points, indices};
 }
 
-/// Only a debug function to generate top and bottom plates from a 2D shape.
-/// It is not used in the algorithm directly.
-inline Contour3D roofs(const ExPolygon& poly, coord_t z_distance) {
-    Polygons triangles = triangulate(poly);
-
-    auto lower = convert(triangles, 0, false);
-    auto upper = convert(triangles, z_distance, true);
-    lower.merge(upper);
-    return lower;
-}
-
-inline Contour3D walls(const ExPolygon& floor_plate, const ExPolygon& ceiling,
+Contour3D walls(const ExPolygon& floor_plate, const ExPolygon& ceiling,
                        double floor_z_mm, double ceiling_z_mm) {
     using std::transform; using std::back_inserter;
 
@@ -280,18 +72,8 @@ inline Contour3D walls(const ExPolygon& floor_plate, const ExPolygon& ceiling,
     return ret;
 }
 
-/// Mesh from an existing contour.
-inline TriangleMesh mesh(const Contour3D& ctour) {
-    return {ctour.points, ctour.indices};
-}
-
-/// Mesh from an evaporating 3D contour
-inline TriangleMesh mesh(Contour3D&& ctour) {
-    return {std::move(ctour.points), std::move(ctour.indices)};
-}
-
 /// Offsetting with clipper and smoothing the edges into a curvature.
-inline void offset(ExPolygon& sh, coord_t distance) {
+void offset(ExPolygon& sh, coord_t distance) {
     using ClipperLib::ClipperOffset;
     using ClipperLib::jtRound;
     using ClipperLib::etClosedPolygon;
@@ -344,93 +126,8 @@ inline void offset(ExPolygon& sh, coord_t distance) {
     }
 }
 
-template<class ExP, class D>
-inline Contour3D round_edges(const ExPolygon& base_plate,
-                            double radius_mm,
-                            double degrees,
-                            double ceilheight_mm,
-                            bool dir,
-                            ExP&& last_offset = ExP(), D&& last_height = D())
-{
-    auto ob = base_plate;
-    auto ob_prev = ob;
-    double wh = ceilheight_mm, wh_prev = wh;
-    Contour3D curvedwalls;
-
-    const size_t steps = 6;     // steps for 180 degrees
-    degrees = std::fmod(degrees, 180);
-    const int portion = int(steps*degrees / 90);
-    const double ystep_mm = radius_mm/steps;
-    coord_t s = dir? 1 : -1;
-    double xxprev = 0;
-    for(int i = 0; i < portion; i++) {
-        ob = base_plate;
-
-        // The offset is given by the equation: x = sqrt(r^2 - y^2)
-        // which can be derived from the circle equation. y is the current
-        // height for which the offset is calculated and x is the offset itself
-        // r is the radius of the circle that is used to smooth the edges
-
-        double r2 = radius_mm * radius_mm;
-        double y2 = steps*ystep_mm - i*ystep_mm;
-        y2 *= y2;
-
-        double xx = sqrt(r2 - y2);
-
-        offset(ob, s*mm(xx));
-        wh = ceilheight_mm - i*ystep_mm;
-
-        Contour3D pwalls;
-        if(xxprev < xx) pwalls = walls(ob, ob_prev, wh, wh_prev);
-        else pwalls = walls(ob_prev, ob, wh_prev, wh);
-
-        curvedwalls.merge(pwalls);
-        ob_prev = ob;
-        wh_prev = wh;
-        xxprev = xx;
-    }
-
-    last_offset = std::move(ob);
-    last_height = wh;
-
-    return curvedwalls;
-}
-
-/// Generating the concave part of the 3D pool with the bottom plate and the
-/// side walls.
-inline Contour3D inner_bed(const ExPolygon& poly, double depth_mm,
-                           double begin_h_mm = 0) {
-
-    Polygons triangles = triangulate(poly);
-
-    coord_t depth = mm(depth_mm);
-    coord_t begin_h = mm(begin_h_mm);
-
-    auto bottom = convert(triangles, -depth + begin_h, false);
-    auto lines = poly.lines();
-
-    // Generate outer walls
-    auto fp = [](const Point& p, Point::coord_type z) {
-        return unscale(x(p), y(p), z);
-    };
-
-    for(auto& l : lines) {
-        auto s = coord_t(bottom.points.size());
-
-        bottom.points.emplace_back(fp(l.a, -depth + begin_h));
-        bottom.points.emplace_back(fp(l.b, -depth + begin_h));
-        bottom.points.emplace_back(fp(l.a, begin_h));
-        bottom.points.emplace_back(fp(l.b, begin_h));
-
-        bottom.indices.emplace_back(s + 3, s + 1, s);
-        bottom.indices.emplace_back(s + 2, s + 3, s);
-    }
-
-    return bottom;
-}
-
 /// Unification of polygons (with clipper) preserving holes as well.
-inline ExPolygons unify(const ExPolygons& shapes) {
+ExPolygons unify(const ExPolygons& shapes) {
     using ClipperLib::ptSubject;
 
     ExPolygons retv;
@@ -499,6 +196,102 @@ inline ExPolygons unify(const ExPolygons& shapes) {
     return retv;
 }
 
+/// Only a debug function to generate top and bottom plates from a 2D shape.
+/// It is not used in the algorithm directly.
+inline Contour3D roofs(const ExPolygon& poly, coord_t z_distance) {
+    Polygons triangles = triangulate(poly);
+
+    auto lower = convert(triangles, 0, false);
+    auto upper = convert(triangles, z_distance, true);
+    lower.merge(upper);
+    return lower;
+}
+
+template<class ExP, class D>
+Contour3D round_edges(const ExPolygon& base_plate,
+                            double radius_mm,
+                            double degrees,
+                            double ceilheight_mm,
+                            bool dir,
+                            ExP&& last_offset = ExP(), D&& last_height = D())
+{
+    auto ob = base_plate;
+    auto ob_prev = ob;
+    double wh = ceilheight_mm, wh_prev = wh;
+    Contour3D curvedwalls;
+
+    const size_t steps = 6;     // steps for 180 degrees
+    degrees = std::fmod(degrees, 180);
+    const int portion = int(steps*degrees / 90);
+    const double ystep_mm = radius_mm/steps;
+    coord_t s = dir? 1 : -1;
+    double xxprev = 0;
+    for(int i = 0; i < portion; i++) {
+        ob = base_plate;
+
+        // The offset is given by the equation: x = sqrt(r^2 - y^2)
+        // which can be derived from the circle equation. y is the current
+        // height for which the offset is calculated and x is the offset itself
+        // r is the radius of the circle that is used to smooth the edges
+
+        double r2 = radius_mm * radius_mm;
+        double y2 = steps*ystep_mm - i*ystep_mm;
+        y2 *= y2;
+
+        double xx = sqrt(r2 - y2);
+
+        offset(ob, s*mm(xx));
+        wh = ceilheight_mm - i*ystep_mm;
+
+        Contour3D pwalls;
+        if(xxprev < xx) pwalls = walls(ob, ob_prev, wh, wh_prev);
+        else pwalls = walls(ob_prev, ob, wh_prev, wh);
+
+        curvedwalls.merge(pwalls);
+        ob_prev = ob;
+        wh_prev = wh;
+        xxprev = xx;
+    }
+
+    last_offset = std::move(ob);
+    last_height = wh;
+
+    return curvedwalls;
+}
+
+/// Generating the concave part of the 3D pool with the bottom plate and the
+/// side walls.
+Contour3D inner_bed(const ExPolygon& poly, double depth_mm,
+                           double begin_h_mm = 0) {
+
+    Polygons triangles = triangulate(poly);
+
+    coord_t depth = mm(depth_mm);
+    coord_t begin_h = mm(begin_h_mm);
+
+    auto bottom = convert(triangles, -depth + begin_h, false);
+    auto lines = poly.lines();
+
+    // Generate outer walls
+    auto fp = [](const Point& p, Point::coord_type z) {
+        return unscale(x(p), y(p), z);
+    };
+
+    for(auto& l : lines) {
+        auto s = coord_t(bottom.points.size());
+
+        bottom.points.emplace_back(fp(l.a, -depth + begin_h));
+        bottom.points.emplace_back(fp(l.b, -depth + begin_h));
+        bottom.points.emplace_back(fp(l.a, begin_h));
+        bottom.points.emplace_back(fp(l.b, begin_h));
+
+        bottom.indices.emplace_back(s + 3, s + 1, s);
+        bottom.indices.emplace_back(s + 2, s + 3, s);
+    }
+
+    return bottom;
+}
+
 inline Point centroid(Points& pp) {
     Point c;
     switch(pp.size()) {
@@ -527,7 +320,7 @@ inline Point centroid(const ExPolygon& poly) {
 /// with explicit bridges. Bridges are generated from each shape's centroid
 /// to the center of the "scene" which is the centroid calculated from the shape
 /// centroids (a star is created...)
-inline ExPolygons concave_hull(const ExPolygons& polys, double max_dist_mm = 50)
+ExPolygons concave_hull(const ExPolygons& polys, double max_dist_mm = 50)
 {
     if(polys.empty()) return ExPolygons();
 
@@ -591,8 +384,6 @@ inline ExPolygons concave_hull(const ExPolygons& polys, double max_dist_mm = 50)
     punion = unify(punion);
 
     return punion;
-}
-
 }
 
 void base_plate(const TriangleMesh &mesh, ExPolygons &output, float h)

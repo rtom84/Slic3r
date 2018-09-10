@@ -126,7 +126,9 @@ class GuiProgressIndicator:
     void _state( unsigned st) {
         if(!gauge_.IsShown()) gauge_.ShowModal();
         Base::state(st);
-        gauge_.Update(static_cast<int>(st), message_);
+        if(!gauge_.Update(static_cast<int>(st), message_)) {
+            cancel();
+        }
     }
 
 public:
@@ -140,7 +142,8 @@ public:
     inline GuiProgressIndicator(int range, const wxString& title,
                                 const wxString& firstmsg) :
         gauge_(title, firstmsg, range, wxTheApp->GetTopWindow(),
-               wxPD_APP_MODAL | wxPD_AUTO_HIDE),
+               wxPD_APP_MODAL | wxPD_AUTO_HIDE | wxPD_CAN_ABORT),
+
         message_(firstmsg),
         range_(range), title_(title)
     {

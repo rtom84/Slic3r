@@ -181,6 +181,9 @@ add_library(libslic3r STATIC
     ${LIBDIR}/libslic3r/TriangleMesh.hpp
     ${LIBDIR}/libslic3r/SLABasePool.cpp
     ${LIBDIR}/libslic3r/SLABasePool.hpp
+    ${LIBDIR}/libslic3r/SLABoilerPlate.hpp
+    ${LIBDIR}/libslic3r/SLASupportTree.hpp
+    ${LIBDIR}/libslic3r/SLASupportTree.cpp
     ${LIBDIR}/libslic3r/Utils.hpp
 )
 
