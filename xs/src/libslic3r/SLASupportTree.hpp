@@ -2,32 +2,32 @@
 #define SLASUPPORTTREE_HPP
 
 #include <vector>
+#include <array>
+#include <cstdint>
 #include <Eigen/Geometry>
 
 namespace Slic3r {
 
 // Needed types from Point.hpp
+typedef int32_t coord_t;
 typedef Eigen::Matrix<double,   3, 1, Eigen::DontAlign> Vec3d;
+typedef Eigen::Matrix<coord_t,  3, 1, Eigen::DontAlign> Vec3crd;
 typedef std::vector<Vec3d>                              Pointf3s;
+typedef std::vector<Vec3crd>                            Points3;
 
 class TriangleMesh;
 
 namespace sla {
 
-class Vec3dN: public Vec3d {
-    Vec3d n_;
-public:
-
-    template<class...Args> Vec3dN(const Vec3d& normal, Args&&...args):
-        Vec3d(std::forward<Args>(args)...), n_(normal) {}
-
-    const Vec3d& normal() const { return n_; }
+/// Intermediate struct for a 3D mesh
+struct IndexedMesh {
+    Pointf3s points;
+    Points3  indices;
+    std::vector<std::pair<Vec3d, size_t>> weightpoints;
 };
 
-using WeightPoints = std::vector<Vec3dN>;
-
 /// Generate the 3D support rods for a model intended for SLA print.
-void create_support_tree(const WeightPoints& inpoints, TriangleMesh& output);
+void create_support_tree(const IndexedMesh& inpoints, TriangleMesh& output);
 
 }
 }
