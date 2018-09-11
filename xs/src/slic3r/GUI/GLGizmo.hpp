@@ -28,6 +28,7 @@ protected:
         Vec3d center;
         Vec3d angles;
         float color[3];
+        bool enabled;
         bool dragging;
 
         Grabber();
@@ -80,8 +81,11 @@ public:
 
     int get_hover_id() const { return m_hover_id; }
     void set_hover_id(int id);
-
+    
     void set_highlight_color(const float* color);
+
+    void enable_grabber(unsigned int id);
+    void disable_grabber(unsigned int id);
 
     void start_dragging(const BoundingBoxf3& box);
     void stop_dragging();
@@ -96,6 +100,8 @@ protected:
     virtual bool on_init() = 0;
     virtual void on_set_state() {}
     virtual void on_set_hover_id() {}
+    virtual void on_enable_grabber(unsigned int id) {}
+    virtual void on_disable_grabber(unsigned int id) {}
     virtual void on_start_dragging(const BoundingBoxf3& box) {}
     virtual void on_stop_dragging() {}
     virtual void on_update(const Linef3& mouse_ray) = 0;
@@ -196,6 +202,16 @@ protected:
             m_gizmos[i].set_hover_id((m_hover_id == i) ? 0 : -1);
         }
     }
+    virtual void on_enable_grabber(unsigned int id)
+    {
+        if ((0 <= id) && (id < 3))
+            m_gizmos[id].enable_grabber(0);
+    }
+    virtual void on_disable_grabber(unsigned int id)
+    {
+        if ((0 <= id) && (id < 3))
+            m_gizmos[id].disable_grabber(0);
+    }
     virtual void on_start_dragging(const BoundingBoxf3& box);
     virtual void on_stop_dragging();
     virtual void on_update(const Linef3& mouse_ray)
@@ -260,6 +276,31 @@ private:
     void do_scale_uniform(const Linef3& mouse_ray);
 
     double calc_ratio(unsigned int preferred_plane_id, const Linef3& mouse_ray, const Vec3d& center) const;
+};
+
+class GLGizmoMove3D : public GLGizmoBase
+{
+    static const double Offset;
+
+    Vec3d m_position;
+    Vec3d m_starting_drag_position;
+    Vec3d m_starting_box_center;
+
+public:
+    explicit GLGizmoMove3D(GLCanvas3D& parent);
+
+    const Vec3d& get_position() const { return m_position; }
+    void set_position(const Vec3d& position) { m_position = position; }
+
+protected:
+    virtual bool on_init();
+    virtual void on_start_dragging(const BoundingBoxf3& box);
+    virtual void on_update(const Linef3& mouse_ray);
+    virtual void on_render(const BoundingBoxf3& box) const;
+    virtual void on_render_for_picking(const BoundingBoxf3& box) const;
+
+private:
+    double calc_displacement(unsigned int preferred_plane_id, const Linef3& mouse_ray) const;
 };
 
 class GLGizmoFlatten : public GLGizmoBase
