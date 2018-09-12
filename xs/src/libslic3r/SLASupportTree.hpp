@@ -23,11 +23,38 @@ namespace sla {
 struct IndexedMesh {
     Pointf3s points;
     Points3  indices;
+
+    // A vector of pairs: first is the point of interest regarding the support
+    // generation, second is an index into "indices" that corresponds to the
+    // triangle which owns the POI.
+    // The POI can be in baricentric or world coordinates... we should decide
     std::vector<std::pair<Vec3d, size_t>> weightpoints;
 };
 
+struct SupportConfig {
+    // Radius in radians of the pointing side of the head.
+    double head_front_radius_rad;
+
+    // Radius of the back side of the 3d arrow.
+    double head_back_radius_rad;
+
+    // Width in mm from the back sphere center to the front sphere center.
+    double head_width_mm;
+
+    // Radius in radians of the support pillars.
+    double pillar_radius_rad;
+
+    // Radius in radians of the pillar base.
+    double base_radius_rad;
+
+    // The height of the pillar base cone in mm.
+    double base_height_mm;
+};
+
 /// Generate the 3D support rods for a model intended for SLA print.
-void create_support_tree(const IndexedMesh& inpoints, TriangleMesh& output);
+void create_support_tree(const IndexedMesh& inpoints,
+                         TriangleMesh& output,
+                         const SupportConfig& cfg);
 
 }
 }
