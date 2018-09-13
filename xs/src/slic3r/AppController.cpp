@@ -511,6 +511,11 @@ void AppController::arrange_model()
 {
     using Coord = libnest2d::TCoord<libnest2d::PointImpl>;
 
+    if(arranging_.load()) return;
+
+    // to prevent UI reentrancies
+    arranging_.store(true);
+
     unsigned count = 0;
     for(auto obj : model_->objects) count += obj->instances.size();
 
@@ -524,8 +529,8 @@ void AppController::arrange_model()
         // Set the range of the progress to the object count
         pind->max(count);
 
-        pind->on_cancel([](){
-            std::cout << "Cannot be canceled!" << std::endl;
+        pind->on_cancel([this](){
+            arranging_.store(false);
         });
     }
 
@@ -551,10 +556,12 @@ void AppController::arrange_model()
                       bed,
                       hint,
                       false, // create many piles not just one pile
-                      [pind, count](unsigned rem) {
+                      [this, pind, count](unsigned rem) {
             if(pind)
                 pind->update(count - rem, L("Arranging objects..."));
-        });
+
+            process_events();
+        }, [this] () { return !arranging_.load(); });
     } catch(std::exception& e) {
         std::cerr << e.what() << std::endl;
         report_issue(IssueType::ERR,
@@ -566,9 +573,13 @@ void AppController::arrange_model()
     // Restore previous max value
     if(pind) {
         pind->max(pmax);
-        pind->update(0, L("Arranging done."));
+        pind->update(0, arranging_.load() ? L("Arranging done.") :
+                                            L("Arranging canceled."));
+
         pind->on_cancel(/*remove cancel function*/);
     }
+
+    arranging_.store(false);
 }
 
 }

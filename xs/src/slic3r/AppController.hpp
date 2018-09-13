@@ -241,6 +241,7 @@ public:
 class AppController: public AppControllerBoilerplate {
     Model *model_ = nullptr;
     PrintController::Ptr printctl;
+    std::atomic<bool> arranging_;
 public:
 
     /**
