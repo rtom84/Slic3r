@@ -2992,6 +2992,7 @@ void TabSLAMaterial::build()
     optgroup->append_single_option_line("pool_height");
     optgroup->append_single_option_line("pool_wall_thickness");
     optgroup->append_single_option_line("pool_max_merge_distance");
+    optgroup->append_single_option_line("pool_edge_radius");
 
     page = add_options_page(_(L("Notes")), "note.png");
     optgroup = page->new_optgroup(_(L("Notes")), 0);

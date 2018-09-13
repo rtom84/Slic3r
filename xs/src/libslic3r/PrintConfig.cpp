@@ -2260,6 +2260,14 @@ void PrintConfigDef::init_sla_params()
     def->min = 0;
     def->default_value = new ConfigOptionFloat(10);
 
+    def = this->add("pool_edge_radius", coFloat);
+    def->label = L("Pool edge radius");
+    def->tooltip = L("The edges of the pool are rounded by this radius.");
+    def->sidetext = L("mm");
+    def->cli = "sla-pool-edge-radius=f";
+    def->min = 0;
+    def->default_value = new ConfigOptionFloat(1);
+
     def = this->add("material_correction_printing", coFloats);
     def->full_label = L("Correction for expansion when printing");
     def->tooltip  = L("Correction for expansion when printing");

@@ -389,7 +389,7 @@ const std::vector<std::string>& Preset::sla_material_options()
             "exposure_time", "initial_exposure_time",
             "material_correction_printing", "material_correction_curing",
             "pool_height", "pool_wall_thickness", "pool_max_merge_distance",
-            "material_notes",
+            "pool_edge_radius", "material_notes",
             "compatible_printers",
             "compatible_printers_condition", "inherits"
         };

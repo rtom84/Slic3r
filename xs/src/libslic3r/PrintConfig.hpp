@@ -898,6 +898,7 @@ public:
     ConfigOptionFloat                       pool_height;
     ConfigOptionFloat                       pool_wall_thickness;
     ConfigOptionFloat                       pool_max_merge_distance;
+    ConfigOptionFloat                       pool_edge_radius;
 protected:
     void initialize(StaticCacheBase &cache, const char *base_ptr)
     {
@@ -910,6 +911,7 @@ protected:
         OPT_PTR(pool_height);
         OPT_PTR(pool_wall_thickness);
         OPT_PTR(pool_max_merge_distance);
+        OPT_PTR(pool_edge_radius);
     }
 };
 

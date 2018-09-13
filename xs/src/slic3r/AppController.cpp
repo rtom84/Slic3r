@@ -441,7 +441,7 @@ void PrintController::add_sla_pool()
 
     // generate sla base pools
     sla::PoolConfig pcfg;
-    pcfg.edge_radius_mm = 1;
+    pcfg.edge_radius_mm = conf.opt_float("pool_edge_radius");
     pcfg.min_wall_thickness_mm = conf.opt_float("pool_wall_thickness");
     pcfg.min_wall_height_mm = conf.opt_float("pool_height");
     pcfg.max_merge_distance_mm = conf.opt_float("pool_max_merge_distance");
