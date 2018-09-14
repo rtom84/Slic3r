@@ -153,9 +153,6 @@ struct Contour3D {
     }
 };
 
-Contour3D walls(const ExPolygon& floor_plate, const ExPolygon& ceiling,
-                       double floor_z_mm, double ceiling_z_mm);
-
 /// Convert the triangulation output to an intermediate mesh.
 Contour3D convert(const Polygons& triangles, coord_t z, bool dir);
 
@@ -168,12 +165,6 @@ inline TriangleMesh mesh(const Contour3D& ctour) {
 inline TriangleMesh mesh(Contour3D&& ctour) {
     return {std::move(ctour.points), std::move(ctour.indices)};
 }
-
-/// Offsetting with clipper and smoothing the edges into a curvature.
-void offset(ExPolygon& sh, coord_t distance);
-
-/// Unification of polygons (with clipper) preserving holes as well.
-ExPolygons unify(const ExPolygons& shapes);
 
 }
 }
