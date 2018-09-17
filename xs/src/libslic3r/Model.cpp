@@ -989,8 +989,6 @@ const TriangleMesh& ModelVolume::get_convex_hull() const
 ModelVolume::Type ModelVolume::type_from_string(const std::string &s)
 {
     // Legacy support
-    if (s == "0")
-        return MODEL_PART;
     if (s == "1")
         return PARAMETER_MODIFIER;
     // New type (supporting the support enforcers & blockers)
@@ -1002,6 +1000,7 @@ ModelVolume::Type ModelVolume::type_from_string(const std::string &s)
         return SUPPORT_ENFORCER;
     if (s == "SupportBlocker")
         return SUPPORT_BLOCKER;
+    return MODEL_PART;
 }
 
 std::string ModelVolume::type_to_string(const Type t)
