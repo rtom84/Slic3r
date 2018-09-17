@@ -220,37 +220,56 @@ Contour3D round_edges(const ExPolygon& base_plate,
     double wh = ceilheight_mm, wh_prev = wh;
     Contour3D curvedwalls;
 
-    const size_t steps = 6;     // steps for 180 degrees
-    degrees = std::fmod(degrees, 180);
-    const int portion = int(steps*degrees / 90);
-    const double ystep_mm = radius_mm/steps;
+    int steps = 10;
+    double stepx = radius_mm / steps;
     coord_t s = dir? 1 : -1;
-    double xxprev = 0;
-    for(int i = 0; i < portion; i++) {
+    degrees = std::fmod(degrees, 180);
+
+    if(degrees >= 90) {
+        for(int i = 0; i <= steps; ++i) {
+            ob = base_plate;
+
+            double r2 = radius_mm * radius_mm;
+            double xx = i*stepx;
+            double x2 = xx*xx;
+            double stepy = std::sqrt(r2 - x2);
+
+            offset(ob, s*mm(xx));
+            wh = ceilheight_mm - radius_mm + stepy;
+
+            Contour3D pwalls;
+            pwalls = walls(ob, ob_prev, wh, wh_prev);
+
+            curvedwalls.merge(pwalls);
+            ob_prev = ob;
+            wh_prev = wh;
+        }
+    }
+
+    double tox = radius_mm - radius_mm*std::sin(degrees * PI / 180);
+    int tos = int(tox / stepx);
+    std::cout << "degress " << degrees << std::endl;
+    std::cout << "tox " << tox << std::endl;
+    std::cout << "tos " << tos << std::endl;
+
+    for(int i = 0; i <= tos; ++i) {
         ob = base_plate;
 
-        // The offset is given by the equation: x = sqrt(r^2 - y^2)
-        // which can be derived from the circle equation. y is the current
-        // height for which the offset is calculated and x is the offset itself
-        // r is the radius of the circle that is used to smooth the edges
-
         double r2 = radius_mm * radius_mm;
-        double y2 = steps*ystep_mm - i*ystep_mm;
-        y2 *= y2;
-
-        double xx = sqrt(r2 - y2);
+        double xx = radius_mm - i*stepx;
+        double x2 = xx*xx;
+        double stepy = std::sqrt(r2 - x2);
+        std::cout << "xx: " << xx << " stepy: " << stepy << std::endl;
 
         offset(ob, s*mm(xx));
-        wh = ceilheight_mm - i*ystep_mm;
+        wh = ceilheight_mm - radius_mm - stepy;
 
         Contour3D pwalls;
-        if(xxprev < xx) pwalls = walls(ob, ob_prev, wh, wh_prev);
-        else pwalls = walls(ob_prev, ob, wh_prev, wh);
+        pwalls = walls(ob_prev, ob, wh_prev, wh);
 
         curvedwalls.merge(pwalls);
         ob_prev = ob;
         wh_prev = wh;
-        xxprev = xx;
     }
 
     last_offset = std::move(ob);
@@ -431,9 +450,35 @@ void create_base_pool(const ExPolygons &ground_layer, TriangleMesh& out,
         Contour3D pool;
 
         ExPolygon ob = outer_base; double wh = 0;
+
+        // now we will calculate the angle or portion of the circle from
+        // pi/2 that will connect perfectly with the bottom plate.
+        // this is a tangent point calculation problem and the equation can
+        // be found for example here:
+        // http://www.ambrsoft.com/TrigoCalc/Circles2/CirclePoint/CirclePointDistance.htm
+        // the y coordinate would be:
+        // y = cy + (r^2*py - r*px*sqrt(px^2 + py^2 - r^2) / (px^2 + py^2)
+        // where px and py are the coordinates of the point outside the circle
+        // cx and xy are the circle center, r is the radius
+        // to get the angle we use arcsin function and subtract 90 degrees then
+        // flip the sign to get the right input to the round_edge function.
+        double r = cfg.edge_radius_mm;
+        double cy = 0;
+        double cx = 0;
+        double px = cfg.min_wall_thickness_mm;
+        double py = r - cfg.min_wall_height_mm;
+
+        double pxcx = px - cx;
+        double pycy = py - cy;
+        double b_2 = pxcx*pxcx + pycy*pycy;
+        double r_2 = r*r;
+        double D = std::sqrt(b_2 - r_2);
+        double vy = (r_2*pycy - r*pxcx*D) / b_2;
+        double phi = -1*(std::asin(vy/r) * 180 / PI - 90);
+
         auto curvedwalls = round_edges(ob,
-                                       cfg.edge_radius_mm,    // radius 1 mm
-                                       170,  // 170 degrees
+                                       r,
+                                       phi,  // 170 degrees
                                        0,    // z position of the input plane
                                        true,
                                        ob, wh);
@@ -453,9 +498,10 @@ void create_base_pool(const ExPolygons &ground_layer, TriangleMesh& out,
         auto bottom_plate = convert(bottom_triangles, -HEIGHT, true);
 
         ob = inner_base; wh = 0;
+        // rounded edge generation for the inner bed
         curvedwalls = round_edges(ob,
-                                  cfg.edge_radius_mm,    // radius 1 mm
-                                  90,  // 170 degrees
+                                  cfg.edge_radius_mm,
+                                  90,   // 90 degrees
                                   0,    // z position of the input plane
                                   false,
                                   ob, wh);
