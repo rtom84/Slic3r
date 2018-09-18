@@ -2241,7 +2241,7 @@ void PrintConfigDef::init_sla_params()
     def->tooltip = L("The height of the generated pool geometry in mm");
     def->sidetext = L("mm");
     def->cli = "sla-pool-height=f";
-    def->min = 1;
+    def->min = 0;
     def->default_value = new ConfigOptionFloat(5);
 
     def = this->add("pool_wall_thickness", coFloat);

@@ -52,7 +52,7 @@ Contour3D walls(const ExPolygon& floor_plate, const ExPolygon& ceiling,
     auto is_upper = [&hlines](const Point& p) {
         return std::any_of(hlines.begin(), hlines.end(),
                                [&p](const Line& l) {
-            return l.distance_to(p) < mm(0.01);
+            return l.distance_to(p) < mm(1e-6);
         });
     };
 
@@ -220,13 +220,14 @@ Contour3D round_edges(const ExPolygon& base_plate,
     double wh = ceilheight_mm, wh_prev = wh;
     Contour3D curvedwalls;
 
-    int steps = 10;
+    int steps = 15; // int(std::ceil(10*std::pow(radius_mm, 1.0/3)));
     double stepx = radius_mm / steps;
+    std::cout << "step x: " << stepx << std::endl;
     coord_t s = dir? 1 : -1;
     degrees = std::fmod(degrees, 180);
 
     if(degrees >= 90) {
-        for(int i = 0; i <= steps; ++i) {
+        for(int i = 1; i <= steps; ++i) {
             ob = base_plate;
 
             double r2 = radius_mm * radius_mm;
@@ -248,19 +249,14 @@ Contour3D round_edges(const ExPolygon& base_plate,
 
     double tox = radius_mm - radius_mm*std::sin(degrees * PI / 180);
     int tos = int(tox / stepx);
-    std::cout << "degress " << degrees << std::endl;
-    std::cout << "tox " << tox << std::endl;
-    std::cout << "tos " << tos << std::endl;
 
-    for(int i = 0; i <= tos; ++i) {
+    for(int i = 1; i <= tos; ++i) {
         ob = base_plate;
 
         double r2 = radius_mm * radius_mm;
         double xx = radius_mm - i*stepx;
         double x2 = xx*xx;
         double stepy = std::sqrt(r2 - x2);
-        std::cout << "xx: " << xx << " stepy: " << stepy << std::endl;
-
         offset(ob, s*mm(xx));
         wh = ceilheight_mm - radius_mm - stepy;
 
@@ -320,10 +316,6 @@ inline Point centroid(Points& pp) {
     default: {
         c = std::accumulate(pp.begin(), pp.end(), Point{0, 0});
         x(c) /= coord_t(pp.size()); y(c) /= coord_t(pp.size());
-//        Polygon p;
-//        p.points.swap(pp);
-//        c = p.centroid();
-//        pp.swap(p.points);
         break;
     }
     }
@@ -459,7 +451,7 @@ void create_base_pool(const ExPolygons &ground_layer, TriangleMesh& out,
         // the y coordinate would be:
         // y = cy + (r^2*py - r*px*sqrt(px^2 + py^2 - r^2) / (px^2 + py^2)
         // where px and py are the coordinates of the point outside the circle
-        // cx and xy are the circle center, r is the radius
+        // cx and cy are the circle center, r is the radius
         // to get the angle we use arcsin function and subtract 90 degrees then
         // flip the sign to get the right input to the round_edge function.
         double r = cfg.edge_radius_mm;
@@ -474,7 +466,7 @@ void create_base_pool(const ExPolygons &ground_layer, TriangleMesh& out,
         double r_2 = r*r;
         double D = std::sqrt(b_2 - r_2);
         double vy = (r_2*pycy - r*pxcx*D) / b_2;
-        double phi = -1*(std::asin(vy/r) * 180 / PI - 90);
+        double phi = -(std::asin(vy/r) * 180 / PI - 90);
 
         auto curvedwalls = round_edges(ob,
                                        r,
