@@ -32,23 +32,23 @@ struct IndexedMesh {
 };
 
 struct SupportConfig {
-    // Radius in radians of the pointing side of the head.
-    double head_front_radius_rad;
+    // Radius in mm of the pointing side of the head.
+    double head_front_radius_mm = 0.3;
 
     // Radius of the back side of the 3d arrow.
-    double head_back_radius_rad;
+    double head_back_radius_mm = 1.0;
 
     // Width in mm from the back sphere center to the front sphere center.
-    double head_width_mm;
+    double head_width_mm = 2.0;
 
-    // Radius in radians of the support pillars.
-    double pillar_radius_rad;
+    // Radius in mm of the support pillars.
+    double pillar_radius_mm = 1.0;
 
-    // Radius in radians of the pillar base.
-    double base_radius_rad;
+    // Radius in mm of the pillar base.
+    double base_radius_mm = 3.0;
 
     // The height of the pillar base cone in mm.
-    double base_height_mm;
+    double base_height_mm = 0.5;
 };
 
 /// Generate the 3D support rods for a model intended for SLA print.

@@ -33,15 +33,17 @@ Contour3D sphere(double rho, Portion portion = make_portion(0.0, 2.0*PI),
 
     for (double i = 0; i < 2*PI; i+=angle) ring.emplace_back(i);
 
-    const auto sbegin = size_t(std::get<0>(portion) / angle);
-    const auto send = size_t(std::get<1>(portion) / angle);
+    const auto sbegin = size_t(2*std::get<0>(portion)/angle);
+    const auto send = size_t(2*std::get<1>(portion)/angle);
 
     const size_t steps = ring.size();
     const double increment = (double)(1.0 / (double)steps);
 
     // special case: first ring connects to 0,0,0
     // insert and form facets.
-    vertices.emplace_back(Vec3d(0.0, 0.0, -rho + increment*sbegin*2.0*rho));
+    if(sbegin == 0)
+        vertices.emplace_back(Vec3d(0.0, 0.0, -rho + increment*sbegin*2.0*rho));
+
     auto id = coord_t(vertices.size());
     for (size_t i = 0; i < ring.size(); i++) {
         // Fixed scaling
@@ -50,6 +52,8 @@ Contour3D sphere(double rho, Portion portion = make_portion(0.0, 2.0*PI),
         const double r = sqrt(abs(rho*rho - z*z));
         Vec2d b = Eigen::Rotation2Dd(ring[i]) * Eigen::Vector2d(0, r);
         vertices.emplace_back(Vec3d(b(0), b(1), z));
+
+        if(sbegin == 0)
         facets.emplace_back((i == 0) ? Vec3crd(coord_t(ring.size()), 0, 1) :
                                        Vec3crd(id - 1, 0, id));
         ++ id;
@@ -80,15 +84,17 @@ Contour3D sphere(double rho, Portion portion = make_portion(0.0, 2.0*PI),
 
     // special case: last ring connects to 0,0,rho*2.0
     // only form facets.
-    vertices.emplace_back(Vec3d(0.0, 0.0, -rho + increment*send*2.0*rho));
-    for (size_t i = 0; i < ring.size(); i++) {
-        auto id_ringsize = coord_t(id - ring.size());
-        if (i == 0) {
-            // third vertex is on the other side of the ring.
-            facets.emplace_back(Vec3crd(id - 1, id_ringsize, id));
-        } else {
-            auto ci = coord_t(id_ringsize + i);
-            facets.emplace_back(Vec3crd(ci - 1, ci, id));
+    if(send >= size_t(2*PI / angle)) {
+        vertices.emplace_back(Vec3d(0.0, 0.0, -rho + increment*send*2.0*rho));
+        for (size_t i = 0; i < ring.size(); i++) {
+            auto id_ringsize = coord_t(id - ring.size());
+            if (i == 0) {
+                // third vertex is on the other side of the ring.
+                facets.emplace_back(Vec3crd(id - 1, id_ringsize, id));
+            } else {
+                auto ci = coord_t(id_ringsize + i);
+                facets.emplace_back(Vec3crd(ci - 1, ci, id));
+            }
         }
     }
     id++;
@@ -139,21 +145,24 @@ Contour3D create_head(double r1_mm, double r2_mm, double width_mm) {
 
     Contour3D ret;
 
-    const size_t steps = 360;
+    const size_t steps = 45;
     const double detail = 2*PI/steps;
 
-    auto&& s1 = sphere(r1_mm, make_portion(0, PI), detail);
-    auto&& s2 = sphere(r2_mm, make_portion(PI, 2*PI), detail);
+    const double h = r1_mm + r2_mm + width_mm;
 
-    for(auto& p : s2.points) z(p) += width_mm;
+    double phi = PI/2 - std::acos( (r1_mm - r2_mm)/(r1_mm + r2_mm + width_mm));
+    std::cout << "phi is: " << phi*180/PI << std::endl;
+
+    auto&& s1 = sphere(r1_mm, make_portion(0, PI/2 + phi), detail);
+    auto&& s2 = sphere(r2_mm, make_portion(PI/2 + phi, PI), detail);
+
+    for(auto& p : s2.points) z(p) += h;
 
     ret.merge(s1);
     ret.merge(s2);
 
-    size_t vsteps = steps + 1;
-    for(size_t idx1 = s1.points.size() - vsteps - 1,
-            idx2 = s1.points.size() + 1;
-        idx1 < s1.points.size() - 2;
+    for(size_t idx1 = s1.points.size() - steps, idx2 = s1.points.size();
+        idx1 < s1.points.size() - 1;
         idx1++, idx2++)
     {
         coord_t i1s1 = coord_t(idx1), i1s2 = coord_t(idx2);
@@ -163,13 +172,13 @@ Contour3D create_head(double r1_mm, double r2_mm, double width_mm) {
         ret.indices.emplace_back(i1s1, i2s2, i1s2);
     }
 
-//    auto i1s1 = coord_t(s1.points.size()) - steps - 1;
-//    auto i2s1 = coord_t(s1.points.size()) - 2;
-//    auto i1s2 = coord_t(s1.points.size()) + 1;
-//    auto i2s2 = coord_t(s1.points.size()) + steps;
+    auto i1s1 = coord_t(s1.points.size()) - steps;
+    auto i2s1 = coord_t(s1.points.size()) - 1;
+    auto i1s2 = coord_t(s1.points.size());
+    auto i2s2 = coord_t(s1.points.size()) + steps - 1;
 
-//    ret.indices.emplace_back(i2s2, i2s1, i1s1);
-//    ret.indices.emplace_back(i1s2, i2s2, i1s1);
+    ret.indices.emplace_back(i2s2, i2s1, i1s1);
+    ret.indices.emplace_back(i1s2, i2s2, i1s1);
 
     return ret;
 }
@@ -178,8 +187,9 @@ void create_support_tree(const IndexedMesh &inpoints,
                          TriangleMesh &output,
                          const SupportConfig& cfg)
 {
-    output = mesh(create_head(1.0, 0.5, 5));
-    output.repair();
+    output = mesh(create_head(cfg.head_back_radius_mm,
+                              cfg.head_front_radius_mm,
+                              cfg.head_width_mm));
 }
 
 }
